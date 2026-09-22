@@ -133,21 +133,21 @@ jobs:
 
     - name: Configure git identity
       run: |
-         git config --global user.email "abhinav@gmail.com"
-         git config --global user.name "Abhinav singh"
+        git config --global user.email "abhinav@gmail.com"
+        git config --global user.name "Abhinav singh"
 
     - name: Fix Audio Android.bp select type condition
       run: |
-         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-         AUDIO_BP="hardware/interfaces/audio/common/all-versions/default/Android.bp"
-         if [ -f "$AUDIO_BP" ]; then
-          echo "🔧 Fixing Audio select type condition..."
-          sed -i 's/"true":/true:/g' "$AUDIO_BP"
-          echo "✅ Audio Android.bp patched!"
-          else
-          echo "⚠️ Audio Android.bp not found, skipping patch."
-         fi
-         working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+        cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
+        AUDIO_BP="hardware/interfaces/audio/common/all-versions/default/Android.bp"
+        if [ -f "$AUDIO_BP" ]; then
+            echo "🔧 Fixing Audio select type condition..."
+            sed -i 's/"true":/true:/g' "$AUDIO_BP"
+            echo "✅ Audio Android.bp patched!"
+        else
+            echo "⚠️ Audio Android.bp not found, skipping patch."
+        fi
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Build YAAP ROM
       run: |
