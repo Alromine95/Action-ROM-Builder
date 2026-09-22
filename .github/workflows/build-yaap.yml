@@ -1,4 +1,4 @@
-name: Build YAAPOS ROM
+name: Build
 
 on:
   workflow_dispatch:
