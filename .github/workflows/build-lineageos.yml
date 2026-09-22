@@ -1,4 +1,4 @@
-name: Build LineageOS ROM
+name: Build YaapOS ROM
 
 
 on:
@@ -7,23 +7,23 @@ on:
       SYNC_URL:
         description: 'SYNC_URL'
         required: true
-        default: 'https://github.com/LineageOS/android.git'
+        default: 'https://github.com/yaap/manifest.git'
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
-        default: 'lineage-21.0'
+        default: 'sixteen'
       DEVICE_TREE_URL:
         description: 'DEVICE_TREE_URL'
         required: true
-        default: 'https://github.com/1ndev-ui/ROM_CG65_device_tree.git'
+        default: 'https://github.com/Alromine95/device_xiaomi_blossom.git'
       DEVICE_TREE_BRANCH:
         description: 'DEVICE_TREE_BRANCH'
         required: true
-        default: 'lineage-21.0'
+        default: '16.2'
       DEVICE_PATH:
         description: 'DEVICE_PATH'
         required: true
-        default: 'device/vortex/CG65'
+        default: 'device/xiaomi/blossom'
       COMMON_TREE_URL:
         description: 'COMMON_TREE_URL (if no common tree, leave blank)'
         required: false
@@ -37,10 +37,10 @@ on:
       MAKEFILE_NAME:
         description: 'MAKEFILE_NAME'
         required: true
-        default: 'lineage_CG65'
+        default: 'yaap_blossom-bp2a-userdebug'
 
 jobs:
-  build-lineageos:
+  build-yaapos:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -85,7 +85,7 @@ jobs:
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir lineage
         cd lineage
-        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
+        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs --depth=1 --git-lfs --groups=default,-mips,-x86,-darwin
         repo sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
@@ -107,17 +107,17 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 12
+        swap-size-gb: 20
 
-    - name: Build Lineage ROM
+    - name: Build Yaap ROM
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
         . build/envsetup.sh
         export USE_CCACHE=1
         export CCACHE_DIR=ccache/
-        ccache -M 50G
+        ccache -M 10G
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        m otapackage
+        m yaap
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
