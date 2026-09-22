@@ -43,7 +43,7 @@ on:
         default: 'm yaap'
 
 jobs:
-  build-lineageos:
+  build-yaapos:
     # NOTE: ubuntu-latest tops out around 14GB disk / 2 cores — nowhere near
     # enough for a full AOSP+YAAP source tree (250-400GB+). This workflow
     # WILL fail on disk space during repo sync unless "runs-on" below is
