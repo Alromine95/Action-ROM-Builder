@@ -131,6 +131,11 @@ jobs:
       with:
         swap-size-gb: 12
 
+    - name: Configure git identity
+      run: |
+         git config --global user.email "abhinav@gmail.com"
+         git config --global user.name "Abhinav singh"
+
     - name: Build YAAP ROM
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
