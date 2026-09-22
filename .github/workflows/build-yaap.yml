@@ -7,23 +7,23 @@ on:
       SYNC_URL:
         description: 'SYNC_URL'
         required: true
-        default: 'https://github.com/LineageOS/android.git'
+        default: 'repo init -u https://github.com/yaap/manifest.git'
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
-        default: 'lineage-21.0'
-      DEVICE_TREE_URL:
-        description: 'DEVICE_TREE_URL'
+        default: 'sixteen'
+      MANIFEST_TREE_URL:
+        description: 'MANIFEST_TREE_URL'
         required: true
-        default: 'https://github.com/1ndev-ui/ROM_CG65_device_tree.git'
+        default: 'https://github.com/Alromine95/Local-manifest.git'
       DEVICE_TREE_BRANCH:
         description: 'DEVICE_TREE_BRANCH'
         required: true
-        default: 'lineage-21.0'
-      DEVICE_PATH:
-        description: 'DEVICE_PATH'
+        default: 'main'
+      REPO_MANIFEST:
+        description: 'MANIFEST_PATH'
         required: true
-        default: 'device/vortex/CG65'
+        default: '.repo/local_manifests'
       COMMON_TREE_URL:
         description: 'COMMON_TREE_URL (if no common tree, leave blank)'
         required: false
@@ -33,11 +33,16 @@ on:
       DEVICE_NAME:
         description: 'DEVICE_NAME'
         required: true
-        default: 'CG65'
+        default: 'blossom'
       MAKEFILE_NAME:
         description: 'MAKEFILE_NAME'
         required: true
-        default: 'lineage_CG65'
+        default: 'yaap_blossom'
+      BUILD_TARGET:
+        description: 'BUILT_TARGET'
+        required: true
+        default: 'm yaap'
+  
 
 jobs:
   build-lineageos:
@@ -80,19 +85,19 @@ jobs:
         ccache -M 50G
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone and sync Lineage sources
+    - name: Clone and sync yaap sources
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir lineage
         cd lineage
-        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
+        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --depth=1 --git-lfs --groups=default,-mips,-x86,-darwin
         repo sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone device tree
+    - name: Clone local manifest
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-        git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
+        git clone ${{ github.event.inputs.MANIFEST_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.REPO_MANIFEST }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Clone common tree
@@ -109,7 +114,7 @@ jobs:
       with:
         swap-size-gb: 12
 
-    - name: Build Lineage ROM
+    - name: Build YAAP ROM
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
         . build/envsetup.sh
@@ -117,7 +122,7 @@ jobs:
         export CCACHE_DIR=ccache/
         ccache -M 50G
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        m otapackage
+        m yaap
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
