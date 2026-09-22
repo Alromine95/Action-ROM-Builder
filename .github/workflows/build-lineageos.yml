@@ -105,6 +105,10 @@ jobs:
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Set Swap Space
+       sudo swapoff -a
+       free -h
+       sudo swapon -a
+       free -h
       uses: pierotofy/set-swap-space@master
       with:
         swap-size-gb: 20
@@ -115,8 +119,8 @@ jobs:
         . build/envsetup.sh
         export USE_CCACHE=1
         export CCACHE_DIR=ccache/
-        ccache -M 10G
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}
+        ccache -M 5G
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }} -j2
         m yaap
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
