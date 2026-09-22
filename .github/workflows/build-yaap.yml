@@ -1,4 +1,4 @@
-name: Build LineageOS ROM
+name: Build YAAPOS ROM
 
 on:
   workflow_dispatch:
