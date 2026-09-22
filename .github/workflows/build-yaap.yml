@@ -1,13 +1,12 @@
 name: Build LineageOS ROM
 
-
 on:
   workflow_dispatch:
     inputs:
       SYNC_URL:
         description: 'SYNC_URL'
         required: true
-        default: 'repo init -u https://github.com/yaap/manifest.git'
+        default: 'https://github.com/yaap/manifest.git'
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
@@ -35,17 +34,23 @@ on:
         required: true
         default: 'blossom'
       MAKEFILE_NAME:
-        description: 'MAKEFILE_NAME'
+        description: 'MAKEFILE_NAME (product-release-variant)'
         required: true
-        default: 'yaap_blossom'
+        default: 'yaap_blossom-bp2a-userdebug'
       BUILD_TARGET:
-        description: 'BUILT_TARGET'
+        description: 'BUILD_TARGET'
         required: true
         default: 'm yaap'
-  
 
 jobs:
   build-lineageos:
+    # NOTE: ubuntu-latest tops out around 14GB disk / 2 cores — nowhere near
+    # enough for a full AOSP+YAAP source tree (250-400GB+). This workflow
+    # WILL fail on disk space during repo sync unless "runs-on" below is
+    # pointed at a self-hosted runner with real disk/CPU (e.g. your own VM
+    # registered as a GitHub Actions runner). Swap the line below once you
+    # have one:
+    #   runs-on: self-hosted
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -85,15 +90,18 @@ jobs:
         ccache -M 50G
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone and sync yaap sources
+    - name: Repo init
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir lineage
         cd lineage
         repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --depth=1 --git-lfs --groups=default,-mips,-x86,-darwin
-        repo sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    # FIX: local manifest (device/vendor/kernel trees) must be cloned
+    # BEFORE the main repo sync runs — otherwise repo sync only pulls the
+    # generic YAAP base tree, with no device-specific repos at all, since
+    # they weren't declared in the manifest set yet at sync time.
     - name: Clone local manifest
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
@@ -109,6 +117,15 @@ jobs:
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    # FIX: the actual repo sync now runs AFTER the local manifest (and
+    # optional common tree) are in place, so the device/vendor/kernel
+    # projects declared in them actually get pulled down.
+    - name: Repo sync
+      run: |
+        cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
+        repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
@@ -122,7 +139,7 @@ jobs:
         export CCACHE_DIR=ccache/
         ccache -M 50G
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        m yaap
+        ${{ github.event.inputs.BUILD_TARGET }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
