@@ -84,10 +84,6 @@ jobs:
         sudo bash setup/android_build_env.sh
         sed -i 's/cd -/cd ../g' setup/install_android_sdk.sh
         sudo bash setup/install_android_sdk.sh
-        mkdir ${{ steps.pwd.outputs.workspace-folder }}/ccache
-        export USE_CCACHE=1
-        export CCACHE_DIR=${{ steps.pwd.outputs.workspace-folder }}/ccache/
-        ccache -M 10G
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Repo init
@@ -126,6 +122,18 @@ jobs:
         repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    - name: Configure Max-Compression zRAM
+      run: |
+        sudo swapoff -a
+        sudo modprobe zram
+        echo zstd | sudo tee /sys/block/zram0/comp_algorithm
+        echo 16G | sudo tee /sys/block/zram0/disksize
+        sudo mkswap /dev/zram0
+        sudo swapon -p 32767 /dev/zram0
+        sudo sysctl vm.swappiness=100
+        sudo sysctl vm.vfs_cache_pressure=50
+        zramctl
+        free -h
    
 
     - name: Configure git identity
@@ -146,15 +154,26 @@ jobs:
         fi
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Build YAAP ROM
+    - name: Compile YAAP ROM (Eng Build & RAM Optimized)
       run: |
-        cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-        . build/envsetup.sh
-        export USE_CCACHE=1
-        export CCACHE_DIR=ccache/
-        ccache -M 50G
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        ${{ github.event.inputs.BUILD_TARGET }}
+        cd yaap
+        source build/envsetup.sh
+        
+        # 1. Forcefully disable CCache to save massive amounts of disk space
+        export USE_CCACHE=0
+        
+        # 2. Memory and performance optimization flags
+        export ZSTD_CLEVEL=19
+        export NINJA_ARGS="-j4"
+        export _JAVA_OPTIONS="-Xmx8g"
+        export DISABLE_ARTIFACT_PATH_REQUIREMENTS=true
+        
+        # Initialize target as 'eng' 
+        # Replace 'codename' with your actual device codename
+        lunch yaap_blossom-bp2a-eng
+        
+        m yaap $NINJA_ARGS
+
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
