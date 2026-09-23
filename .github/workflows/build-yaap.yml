@@ -10,7 +10,7 @@ on:
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
-        default: 'seventeen' # Changed default to seventeen for Android 16.2
+        default: 'sixteen' # Changed default to seventeen for Android 16.2
       MANIFEST_TREE_URL:
         description: 'MANIFEST_TREE_URL'
         required: true
