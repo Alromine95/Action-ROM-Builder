@@ -164,6 +164,12 @@ jobs:
         echo "📁 Creating custom blossom-kernel modules folder..."
         mkdir -p device/xiaomi/blossom-kernel/modules
         
+        # 🚀 THE CRITICAL SOURCE PATCH: 
+        # Delete the unused Trusty component that is causing the missing VTS dependency crash
+        echo "🔧 Patching out unused Trusty dependencies..."
+        rm -rf system/core/trusty || true
+        rm -rf trusty || true
+        
         source build/envsetup.sh
         
         # =================================================================
@@ -191,8 +197,6 @@ jobs:
         # =================================================================
         # 🚀 THE CRITICAL WATCHDOG BYPASS (KEEP-ALIVE LOOP)
         # =================================================================
-        # This spawns a background thread that prints a line every 60 seconds.
-        # GitHub will see active text streams and will NEVER terminate the run.
         bash -c 'while true; do echo "⏳ [WATCHDOG KEEP-ALIVE] Soong is actively parsing blueprints on SSD Swap..."; sleep 60; done' &
         WATCHDOG_PID=$!
 
@@ -202,6 +206,7 @@ jobs:
         # Kill the watchdog loop once compilation finishes cleanly
         kill $WATCHDOG_PID || true
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
 
 
     - name: Check the output directory before uploading
