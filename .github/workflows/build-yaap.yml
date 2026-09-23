@@ -81,20 +81,22 @@ jobs:
         sudo bash setup/install_android_sdk.sh
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Repo init (Hollow / Partial Clone Setup)
+    - name: Repo init (Extreme Architecture & Target Filtering)
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir lineage
         cd lineage
-        # Swapped to modern partial cloning configuration to bypass 130GB space ceiling
+        
+        # 🚀 THE ULTIMATE STRIP: Forcefully excludes TVs, wearables, cars, emulators, and tests
         repo init -u ${{ github.event.inputs.SYNC_URL }} \
           -b ${{ github.event.inputs.MANIFEST_BRANCH }} \
           --depth=1 \
           --git-lfs \
           --partial-clone \
           --clone-filter=blob:limit=10M \
-          --groups=default,-mips,-x86,-darwin,-notdefault,-device
+          --groups=default,-mips,-x86,-darwin,-notdefault,-device,-car,-wear,-tv,-simulator,-tests,-vts,-cts
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
 
     - name: Clone local manifest
       run: |
