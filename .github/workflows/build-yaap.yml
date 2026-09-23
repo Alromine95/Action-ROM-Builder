@@ -146,10 +146,15 @@ jobs:
         fi
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Compile YAAP ROM (Ultra RAM & Storage Friendly)
+    - name: Pre-Build Adjustments (Create Kernel Modules Dir & Compile)
       run: |
-        # FIX: Changed target from 'cd yaap' to 'cd lineage' to correctly track your initialized directory
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
+        
+        # 📂 Create the custom kernel module directory structure
+        echo "📁 Creating custom blossom-kernel modules folder..."
+        mkdir -p device/xiaomi/blossom-kernel/modules
+        
+        # Initialize the build environment variables
         source build/envsetup.sh
         
         # =================================================================
@@ -160,6 +165,10 @@ jobs:
         export WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY=false
         export DISABLE_PROGUARD=true
         export WITHOUT_CHECK_API=true
+        
+        # 🚀 The structural fix for the libcore Soong crash:
+        export BUILD_FROM_SOURCE_STUB=true
+        
         export ZSTD_CLEVEL=19
         export LZ4_CLEVEL=9
         export DISABLE_ARTIFACT_PATH_REQUIREMENTS=true
@@ -173,11 +182,11 @@ jobs:
         export METALAVA_MAX_HEAP_SIZE=2g
         export _JAVA_OPTIONS="-Xmx4g -XX:MaxMetaspaceSize=512m"
         
-        # Dynamically references 'yaap_blossom-bp2a-eng' from workflow input parameters
+        # Initialize targeting and launch the compiler
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        
         ${{ github.event.inputs.BUILD_TARGET }} $NINJA_ARGS
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
 
     - name: Check the output directory before uploading
       run: |
