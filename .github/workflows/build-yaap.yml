@@ -117,17 +117,24 @@ jobs:
         repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Create Hyper-Optimized SSD Swap Space (Expanded)
+    - name: Create Hyper-Optimized SSD Swap Space (16GB Restored)
       run: |
         sudo swapoff -a || true
-        # Expanded to 24GB since your 134GB disk space is wide open
-        sudo fallocate -l 24G /swapfile
+        
+        # 💾 Allocate the 16GB safety net on the cleaned drive space
+        echo "💾 Carving out 16GB swap file..."
+        sudo fallocate -l 16G /swapfile
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
         sudo swapon /swapfile
+        
+        # Optimize memory pressure dynamics
         sudo sysctl vm.swappiness=100
         sudo sysctl vm.vfs_cache_pressure=50
+        
         free -h
+        df -h
+
 
     - name: Configure git identity
       run: |
