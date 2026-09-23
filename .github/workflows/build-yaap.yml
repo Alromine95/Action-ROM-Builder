@@ -44,7 +44,8 @@ on:
 
 jobs:
   build-yaapos:
-    runs-on: ubuntu-latest # Points to your 16GB RAM / 130GB Storage runner configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Points to your 16GB RAM / 130GB Storage runner configuration
     permissions:
       contents: write
     steps:
@@ -116,11 +117,11 @@ jobs:
         repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Create Hyper-Optimized SSD Swap Space (zRAM Fix)
+    - name: Create Hyper-Optimized SSD Swap Space (Expanded)
       run: |
-        # Fixed Azure Module missing bug by rolling custom 16GB hard drive swap ceiling
         sudo swapoff -a || true
-        sudo fallocate -l 16G /swapfile
+        # Expanded to 24GB since your 134GB disk space is wide open
+        sudo fallocate -l 24G /swapfile
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
         sudo swapon /swapfile
@@ -154,7 +155,7 @@ jobs:
         echo "📁 Creating custom blossom-kernel modules folder..."
         mkdir -p device/xiaomi/blossom-kernel/modules
         
-        # Initialize the build environment variables
+         
         source build/envsetup.sh
         
         # =================================================================
@@ -165,10 +166,7 @@ jobs:
         export WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY=false
         export DISABLE_PROGUARD=true
         export WITHOUT_CHECK_API=true
-        
-        # 🚀 The structural fix for the libcore Soong crash:
         export BUILD_FROM_SOURCE_STUB=true
-        
         export ZSTD_CLEVEL=19
         export LZ4_CLEVEL=9
         export DISABLE_ARTIFACT_PATH_REQUIREMENTS=true
@@ -180,13 +178,19 @@ jobs:
         export LDFLAGS="-Wl,--threads=1"
         export RBE_num_local_workers=1
         export METALAVA_MAX_HEAP_SIZE=2g
-        export _JAVA_OPTIONS="-Xmx4g -XX:MaxMetaspaceSize=512m"
+        # Slightly balanced Java heap memory to give the underlying host tool linkers more room
+        export _JAVA_OPTIONS="-Xmx3g -XX:MaxMetaspaceSize=512m"
         
-        # Initialize targeting and launch the compiler
+        # Initialize targeting
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        ${{ github.event.inputs.BUILD_TARGET }} $NINJA_ARGS
+        
+        # 🚀 FORCE NINJA TO PRINT VERBOSE PROGRESS LINES 
+        # This keeps the console active so GitHub never assumes the build is dead!
+        export NINJA_STATUS="[%p %f/%t] "
+        
+        # Execute build with showcommands to keep logs moving constantly
+        ${{ github.event.inputs.BUILD_TARGET }} $NINJA_ARGS ShowCommands=true
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-
 
     - name: Check the output directory before uploading
       run: |
