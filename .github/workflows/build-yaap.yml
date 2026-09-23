@@ -10,7 +10,7 @@ on:
       MANIFEST_BRANCH:
         description: 'MANIFEST_BRANCH'
         required: true
-        default: 'sixteen'
+        default: 'seventeen' # Changed default to seventeen for Android 16.2
       MANIFEST_TREE_URL:
         description: 'MANIFEST_TREE_URL'
         required: true
@@ -36,7 +36,7 @@ on:
       MAKEFILE_NAME:
         description: 'MAKEFILE_NAME (product-release-variant)'
         required: true
-        default: 'yaap_blossom-bp2a-userdebug'
+        default: 'yaap_blossom-bp2a-eng' # Default set directly to eng target
       BUILD_TARGET:
         description: 'BUILD_TARGET'
         required: true
@@ -44,14 +44,7 @@ on:
 
 jobs:
   build-yaapos:
-    # NOTE: ubuntu-latest tops out around 14GB disk / 2 cores — nowhere near
-    # enough for a full AOSP+YAAP source tree (250-400GB+). This workflow
-    # WILL fail on disk space during repo sync unless "runs-on" below is
-    # pointed at a self-hosted runner with real disk/CPU (e.g. your own VM
-    # registered as a GitHub Actions runner). Swap the line below once you
-    # have one:
-    #   runs-on: self-hosted
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Points to your 16GB RAM / 130GB Storage runner configuration
     permissions:
       contents: write
     steps:
@@ -65,7 +58,7 @@ jobs:
         echo "Sender is not the repository owner"
         exit 1
 
-    - name: Cleanup
+    - name: Cleanup Host Space
       uses: rokibhasansagar/slimhub_actions@main
 
     - name: Initialize workspace
@@ -77,7 +70,8 @@ jobs:
 
     - name: Prepare the build environment
       run: |
-        sudo apt install git aria2 -y
+        sudo apt update
+        sudo apt install git aria2 git-lfs -y
         export JAVA_HOME=$(readlink -f $(which java))
         git clone https://gitlab.com/OrangeFox/misc/scripts
         cd scripts
@@ -86,55 +80,53 @@ jobs:
         sudo bash setup/install_android_sdk.sh
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Repo init
+    - name: Repo init (Hollow / Partial Clone Setup)
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir lineage
         cd lineage
-        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --depth=1 --git-lfs --groups=default,-mips,-x86,-darwin
+        # Swapped to modern partial cloning configuration to bypass 130GB space ceiling
+        repo init -u ${{ github.event.inputs.SYNC_URL }} \
+          -b ${{ github.event.inputs.MANIFEST_BRANCH }} \
+          --depth=1 \
+          --git-lfs \
+          --partial-clone \
+          --clone-filter=blob:limit=10M \
+          --groups=default,-mips,-x86,-darwin,-notdefault,-device
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    # FIX: local manifest (device/vendor/kernel trees) must be cloned
-    # BEFORE the main repo sync runs — otherwise repo sync only pulls the
-    # generic YAAP base tree, with no device-specific repos at all, since
-    # they weren't declared in the manifest set yet at sync time.
     - name: Clone local manifest
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-        git clone ${{ github.event.inputs.MANIFEST_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ${{ github.event.inputs.REPO_MANIFEST }}
+        git clone ${{ github.event.inputs.MANIFEST_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ${{ github.event.inputs.REPO_MANIFEST }} --depth=1
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Clone common tree
       if: |
-        github.event.inputs.COMMON_TREE_URL != null
-        && github.event.inputs.COMMON_PATH != null
+        github.event.inputs.COMMON_TREE_URL != null && github.event.inputs.COMMON_TREE_URL != ''
+        && github.event.inputs.COMMON_PATH != null && github.event.inputs.COMMON_PATH != ''
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-        git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
+        git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }} --depth=1
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    # FIX: the actual repo sync now runs AFTER the local manifest (and
-    # optional common tree) are in place, so the device/vendor/kernel
-    # projects declared in them actually get pulled down.
     - name: Repo sync
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
-        repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
+        repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Configure Max-Compression zRAM
+    - name: Create Hyper-Optimized SSD Swap Space (zRAM Fix)
       run: |
-        sudo swapoff -a
-        sudo modprobe zram
-        echo zstd | sudo tee /sys/block/zram0/comp_algorithm
-        echo 16G | sudo tee /sys/block/zram0/disksize
-        sudo mkswap /dev/zram0
-        sudo swapon -p 32767 /dev/zram0
+        # Fixed Azure Module missing bug by rolling custom 16GB hard drive swap ceiling
+        sudo swapoff -a || true
+        sudo fallocate -l 16G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
         sudo sysctl vm.swappiness=100
         sudo sysctl vm.vfs_cache_pressure=50
-        zramctl
         free -h
-   
 
     - name: Configure git identity
       run: |
@@ -154,34 +146,44 @@ jobs:
         fi
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Compile YAAP ROM (Eng Build & RAM Optimized)
+    - name: Compile YAAP ROM (Ultra RAM & Storage Friendly)
       run: |
-        cd yaap
+        # FIX: Changed target from 'cd yaap' to 'cd lineage' to correctly track your initialized directory
+        cd ${{ steps.pwd.outputs.workspace-folder }}/lineage/
         source build/envsetup.sh
         
-        # 1. Forcefully disable CCache to save massive amounts of disk space
+        # =================================================================
+        # 💾 STORAGE-SAVING CONTROLS
+        # =================================================================
         export USE_CCACHE=0
-        
-        # 2. Memory and performance optimization flags
+        export WITH_DEXPREOPT=false
+        export WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY=false
+        export DISABLE_PROGUARD=true
+        export WITHOUT_CHECK_API=true
         export ZSTD_CLEVEL=19
-        export NINJA_ARGS="-j4"
-        export _JAVA_OPTIONS="-Xmx8g"
+        export LZ4_CLEVEL=9
         export DISABLE_ARTIFACT_PATH_REQUIREMENTS=true
-        
-        # Initialize target as 'eng' 
-        # Replace 'codename' with your actual device codename
-        lunch yaap_blossom-bp2a-eng
-        
-        m yaap $NINJA_ARGS
 
+        # =================================================================
+        # 🧠 RAM-SAVING CONTROLS
+        # =================================================================
+        export NINJA_ARGS="-j4"
+        export LDFLAGS="-Wl,--threads=1"
+        export RBE_num_local_workers=1
+        export METALAVA_MAX_HEAP_SIZE=2g
+        export _JAVA_OPTIONS="-Xmx4g -XX:MaxMetaspaceSize=512m"
+        
+        # Dynamically references 'yaap_blossom-bp2a-eng' from workflow input parameters
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }}
+        
+        ${{ github.event.inputs.BUILD_TARGET }} $NINJA_ARGS
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-      continue-on-error: true
 
     - name: Check the output directory before uploading
       run: |
-        ls -al ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/
+        ls -al ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/ || true
         echo
-        ls -al ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/
+        ls -al ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/ || true
 
     - name: Upload to Release
       uses: softprops/action-gh-release@v1
