@@ -117,7 +117,7 @@ jobs:
         cd ${{ steps.pwd.outputs.workspace-folder }}/arrow/
         . build/envsetup.sh
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}
-        m otapackage
+        m bacon
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
