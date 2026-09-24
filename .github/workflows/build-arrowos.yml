@@ -88,14 +88,15 @@ jobs:
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir arrow
         cd arrow
-        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
-        repo sync
+        repo init -u ${{ github.event.inputs.SYNC_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs --depth=1 --git-lfs --groups=default,-mips,-x86,-darwin
+        
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Clone device tree
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}/arrow/
         git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
+        repo sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Clone common tree
