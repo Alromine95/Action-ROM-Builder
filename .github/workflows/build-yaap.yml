@@ -119,20 +119,10 @@ jobs:
         repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Create Hyper-Optimized SSD Swap Space (16GB Restored)
-      run: |
-        sudo swapoff -a || true
-        
-        # 💾 Allocate the 16GB safety net on the cleaned drive space
-        echo "💾 Carving out 16GB swap file..."
-        sudo fallocate -l 16G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-        
-        # Optimize memory pressure dynamics
-        sudo sysctl vm.swappiness=100
-        sudo sysctl vm.vfs_cache_pressure=50
+    - name: Set Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+       swap-size-gb: 28
         
         free -h
         df -h
