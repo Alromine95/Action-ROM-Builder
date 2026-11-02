@@ -15,10 +15,20 @@ jobs:
             git config --global user.name "Alromine95"
             git config --global user.email "you@example.com"
       - run:
-          name: Run build script
+          name: Sync source
           no_output_timeout: 120m
           command: |
             mkdir -p ~/rom && cd ~/rom
+            repo init -u https://github.com/yaap/manifest.git -b seventeen --git-lfs --depth=1
+            rm -rf .repo/local_manifests
+            git clone https://github.com/Alromine95/dt.git -b main .repo/local_manifests
+            for i in 1 2 3; do repo sync -c -j8 --force-sync --no-clone-bundle --no-tags && break || sleep 30; done
+            ls build/envsetup.sh
+      - run:
+          name: Run build script
+          no_output_timeout: 120m
+          command: |
+            cd ~/rom
             curl -fsSL https://raw.githubusercontent.com/Alromine95/vol/refs/heads/main/yaap.sh -o build.sh
             chmod +x build.sh
             ./build.sh
