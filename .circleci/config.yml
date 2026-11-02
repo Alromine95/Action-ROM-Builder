@@ -5,12 +5,20 @@ jobs:
     machine:
       image: ubuntu-2204:current
     resource_class: large   # use the biggest class your plan allows
+    environment:
+      DEBIAN_FRONTEND: noninteractive
+      NEEDRESTART_MODE: a
     steps:
       - run:
           name: Free disk space and check what is left
           command: |
             sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet 2>/dev/null || true
             df -h
+      - run:
+          name: Disable interactive apt prompts
+          command: |
+            sudo apt-get remove -y needrestart || true
+            echo 'Dpkg::Options { "--force-confdef"; "--force-confold"; };' | sudo tee /etc/apt/apt.conf.d/99noninteractive
       - run:
           name: Install build dependencies
           command: |
